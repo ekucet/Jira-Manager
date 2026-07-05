@@ -21,3 +21,6 @@ xcuserdata/
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# Release artifacts
+*.dmg

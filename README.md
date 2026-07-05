@@ -1,40 +1,61 @@
 # JiraManager
 
-A native macOS app (SwiftUI) that streamlines a developer's daily Jira/Bitbucket/Confluence workflow — and hands the actual coding and reviewing off to Claude Code.
+Geliştiricinin günlük **Jira / Bitbucket / Confluence** akışını tek bir yerden yöneten, kodlama ve review işini **Claude Code**'a devreden native macOS uygulaması (SwiftUI).
 
-## Features
+## Özellikler
 
-- **İşlerim** — Lists issues assigned to you (Jira Server/DC or Cloud), with detail view.
-  - **Log work** — quick effort entry on an issue (defaults to a full 8h day at 09:00).
-  - **Claude Code ile çalış** — give feedback, let Claude Code edit the project, review the diff, then commit + push + open a Bitbucket pull request — all gated by your approval.
-- **PR Review** — Lists open Bitbucket pull requests, runs a Claude Code review on the diff, renders findings grouped by severity, and can post the review back as a PR comment.
-- **Confluence** — Full-text search and in-app reading of Confluence pages.
+- **📋 İşlerim** — Üstüne atanmış Jira issue'larını listeler (Server/DC veya Cloud), detayıyla gösterir.
+  - **Efor girişi** — Seçili task'a hızlı worklog (varsayılan: 09:00'dan başlayan tam gün 8 saat).
+  - **Claude Code ile çalış** — Feedback'ini al, Claude Code proje klasöründe değişiklikleri yapsın, diff'i onayla, ardından **commit + push + Bitbucket PR** — her adım senin onayınla.
+- **🔀 PR Review** — Açık Bitbucket PR'larını listeler, Claude Code'a diff'i inceletir, bulguları önem derecesine göre (Blocker/Major/Minor/Nit) renkli kartlarla gösterir, istersen review'ı PR'a yorum olarak ekler.
+- **📄 Confluence** — Döküman arama ve uygulama içinde okuma.
 
-## Requirements
+## İndir & Kur
+
+1. [**Releases**](../../releases) sayfasından en güncel `JiraManager-x.y.z.dmg` dosyasını indir.
+2. DMG'yi aç, **JiraManager**'ı **Applications** klasörüne sürükle.
+3. İlk açılışta macOS "geliştirici doğrulanamadı" diyebilir (uygulama notarize edilmemiştir). Aşmak için:
+   - **JiraManager**'a sağ tıkla → **Aç** → **Aç**, **veya**
+   - Terminal'de: `xattr -cr /Applications/JiraManager.app`
+
+> Uygulama hiçbir veriyi dışarı göndermez; tüm token'lar yalnızca senin **macOS Keychain**'inde saklanır.
+
+## Gereksinimler
 
 - macOS 14+
-- Xcode 16+ (built with Xcode 26 / Swift)
-- [Claude Code CLI](https://claude.com/claude-code) installed and logged in (`claude login`) — used for the coding and review flows.
-- Access tokens for Jira / Bitbucket / Confluence (entered in the app's Settings; stored in the macOS Keychain).
+- [Claude Code CLI](https://claude.com/claude-code) kurulu ve giriş yapılmış (`claude login`) — kodlama ve review akışları bunu kullanır.
+- Jira / Bitbucket / Confluence için erişim token'ları (uygulama içinde **Ayarlar**'dan girilir).
 
-## Configuration
+## Ayarlar
 
-Open **Settings** in the app and fill in:
+Uygulamada **Ayarlar**'ı aç ve doldur:
 
-- **Jira** — deployment type (Server/DC or Cloud), base URL, access token (Cloud also needs email).
-- **Bitbucket** — base URL and HTTP access token.
-- **Confluence** — base URL and access token (a token separate from Jira's).
-- **Project folder** — the local git checkout Claude Code will work in.
-- **claude CLI path** and **PR target branch**.
+- **Jira** — kurulum tipi (Server/DC veya Cloud), URL, access token (Cloud ayrıca email ister).
+- **Bitbucket** — URL ve HTTP access token.
+- **Confluence** — URL ve access token (Jira'nınkinden ayrı bir token).
+- **Proje klasörü** — Claude Code'un çalışacağı yerel git deposu.
+- **claude CLI yolu** ve **PR hedef branch**.
 
-No credentials are stored in the repository; tokens live only in your Keychain.
+## Kaynaktan Derleme
 
-## Architecture
+```bash
+git clone https://github.com/ekucet/Jira-Manager.git
+cd Jira-Manager
+open JiraManager.xcodeproj   # Xcode'da Run (⌘R)
+```
+
+DMG üretmek için:
+
+```bash
+./scripts/build-dmg.sh
+```
+
+## Mimari
 
 - `Services/` — `JiraClient`, `BitbucketClient`, `ConfluenceClient`, `GitRunner`, `ClaudeRunner`, `ProcessRunner`, `KeychainStore`, `AppSettings`.
-- `ViewModels/` — per-tab state (`IssuesViewModel`, `PRReviewViewModel`, `ConfluenceViewModel`, `WorkViewModel`).
-- `Views/` — SwiftUI screens (`RootView` tab shell, issue list/detail, PR review, Confluence, settings, work sheet).
+- `ViewModels/` — sekme bazlı durum (`IssuesViewModel`, `PRReviewViewModel`, `ConfluenceViewModel`, `WorkViewModel`).
+- `Views/` — SwiftUI ekranları (`RootView` sekme kabuğu, issue liste/detay, PR review, Confluence, ayarlar, çalışma sayfası).
 
-## License
+## Lisans
 
 MIT

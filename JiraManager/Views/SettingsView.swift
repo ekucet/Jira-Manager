@@ -23,6 +23,8 @@ struct SettingsView: View {
                 Divider()
                 confluenceSection
                 Divider()
+                updatesSection
+                Divider()
                 projectSection
                 Divider()
                 footer
@@ -121,6 +123,28 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: Updates
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+    }
+
+    private var updatesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Güncelleme", systemImage: "arrow.down.app")
+                .font(.title3.bold())
+            HStack {
+                Text("Yüklü sürüm").font(.caption).foregroundStyle(.secondary)
+                Text(appVersion).font(.caption.monospaced())
+            }
+            Text("Repo private olduğu için güncelleme kontrolü bir GitHub token ister (repo okuma yetkisi).")
+                .font(.caption).foregroundStyle(.secondary)
+            secureField("GitHub Token", text: $settings.githubToken)
+            Text("Kontrol için menü: JiraManager → “Güncellemeleri Denetle…”")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 

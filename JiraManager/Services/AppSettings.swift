@@ -55,6 +55,13 @@ final class AppSettings: ObservableObject {
         didSet { writeToken(confluenceToken, account: KeychainAccount.confluence) }
     }
 
+    // MARK: Updates (GitHub)
+
+    /// Optional GitHub token (repo read) for checking/downloading updates from the private release repo.
+    @Published var githubToken: String {
+        didSet { writeToken(githubToken, account: KeychainAccount.github) }
+    }
+
     // MARK: Local project
 
     /// Absolute path to the local project folder Claude Code will work in (Phase 2).
@@ -85,6 +92,7 @@ final class AppSettings: ObservableObject {
         static let jira = "jira"
         static let bitbucket = "bitbucket"
         static let confluence = "confluence"
+        static let github = "github"
     }
 
     init() {
@@ -102,6 +110,7 @@ final class AppSettings: ObservableObject {
         jiraToken = KeychainStore.get(account: KeychainAccount.jira) ?? ""
         bitbucketToken = KeychainStore.get(account: KeychainAccount.bitbucket) ?? ""
         confluenceToken = KeychainStore.get(account: KeychainAccount.confluence) ?? ""
+        githubToken = KeychainStore.get(account: KeychainAccount.github) ?? ""
     }
 
     private func writeToken(_ value: String, account: String) {

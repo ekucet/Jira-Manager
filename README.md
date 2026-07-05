@@ -9,12 +9,15 @@ Geliştiricinin günlük **Jira / Bitbucket / Confluence** akışını tek bir y
   - **Claude Code ile çalış** — Feedback'ini al, Claude Code proje klasöründe değişiklikleri yapsın, diff'i onayla, ardından **commit + push + Bitbucket PR** — her adım senin onayınla.
 - **🔀 PR Review** — Açık Bitbucket PR'larını listeler, Claude Code'a diff'i inceletir, bulguları önem derecesine göre (Blocker/Major/Minor/Nit) renkli kartlarla gösterir, istersen review'ı PR'a yorum olarak ekler.
 - **📄 Confluence** — Döküman arama ve uygulama içinde okuma.
+- **🔄 Otomatik güncelleme** — Yeni sürüm çıktığında uygulama açılışta haber verir; **"Kur ve Yeniden Başlat"** ile son sürümü indirip kendini günceller (menüden *Güncellemeleri Denetle* ile elle de kontrol edilir).
 
 ## İndir & Kur
 
 1. [**Releases**](../../releases) sayfasından en güncel `JiraManager-x.y.z.dmg` dosyasını indir.
 2. DMG'yi aç, **JiraManager**'ı **Applications** klasörüne sürükle.
 3. Uygulamayı aç. DMG Apple tarafından **notarize + imzalı** olduğundan çift tıkla, ekstra bir adım gerekmeden açılır.
+
+İlk kurulumdan sonra yeni sürümler **uygulama içinden** gelir — tekrar DMG indirmene gerek kalmaz (bkz. Otomatik güncelleme).
 
 > Uygulama hiçbir veriyi dışarı göndermez; tüm token'lar yalnızca senin **macOS Keychain**'inde saklanır.
 
@@ -33,6 +36,7 @@ Uygulamada **Ayarlar**'ı aç ve doldur:
 - **Confluence** — URL ve access token (Jira'nınkinden ayrı bir token).
 - **Proje klasörü** — Claude Code'un çalışacağı yerel git deposu.
 - **claude CLI yolu** ve **PR hedef branch**.
+- **GitHub Token** (Güncelleme bölümü) — repo private olduğu için otomatik güncelleme kontrolünün ihtiyaç duyduğu, repo okuma yetkili bir token.
 
 ## Kaynaktan Derleme
 
@@ -53,9 +57,9 @@ Notarize'lı derleme için gereken (bir kez): login keychain'de bir **Developer 
 
 ## Mimari
 
-- `Services/` — `JiraClient`, `BitbucketClient`, `ConfluenceClient`, `GitRunner`, `ClaudeRunner`, `ProcessRunner`, `KeychainStore`, `AppSettings`.
+- `Services/` — `JiraClient`, `BitbucketClient`, `ConfluenceClient`, `GitRunner`, `ClaudeRunner`, `ProcessRunner`, `UpdateService`, `KeychainStore`, `AppSettings`.
 - `ViewModels/` — sekme bazlı durum (`IssuesViewModel`, `PRReviewViewModel`, `ConfluenceViewModel`, `WorkViewModel`).
-- `Views/` — SwiftUI ekranları (`RootView` sekme kabuğu, issue liste/detay, PR review, Confluence, ayarlar, çalışma sayfası).
+- `Views/` — SwiftUI ekranları (`RootView` sekme kabuğu, issue liste/detay, PR review, Confluence, ayarlar, çalışma sayfası, güncelleme penceresi).
 
 ## Lisans
 

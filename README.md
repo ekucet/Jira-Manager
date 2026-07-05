@@ -14,9 +14,7 @@ Geliştiricinin günlük **Jira / Bitbucket / Confluence** akışını tek bir y
 
 1. [**Releases**](../../releases) sayfasından en güncel `JiraManager-x.y.z.dmg` dosyasını indir.
 2. DMG'yi aç, **JiraManager**'ı **Applications** klasörüne sürükle.
-3. İlk açılışta macOS "geliştirici doğrulanamadı" diyebilir (uygulama notarize edilmemiştir). Aşmak için:
-   - **JiraManager**'a sağ tıkla → **Aç** → **Aç**, **veya**
-   - Terminal'de: `xattr -cr /Applications/JiraManager.app`
+3. Uygulamayı aç. DMG Apple tarafından **notarize + imzalı** olduğundan çift tıkla, ekstra bir adım gerekmeden açılır.
 
 > Uygulama hiçbir veriyi dışarı göndermez; tüm token'lar yalnızca senin **macOS Keychain**'inde saklanır.
 
@@ -47,8 +45,11 @@ open JiraManager.xcodeproj   # Xcode'da Run (⌘R)
 DMG üretmek için:
 
 ```bash
-./scripts/build-dmg.sh
+./scripts/build-dmg.sh              # ad-hoc imzalı (yerel test için)
+./scripts/build-notarized-dmg.sh    # Developer ID imzalı + Apple notarize (dağıtım için)
 ```
+
+Notarize'lı derleme için gereken (bir kez): login keychain'de bir **Developer ID Application** sertifikası ve `JiraManager-notary` adıyla kayıtlı bir `notarytool` kimliği (`xcrun notarytool store-credentials`).
 
 ## Mimari
 

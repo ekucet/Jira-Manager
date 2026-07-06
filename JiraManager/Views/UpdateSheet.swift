@@ -73,9 +73,17 @@ struct UpdateSheet: View {
 
     private var busyView: some View {
         VStack(spacing: 14) {
-            ProgressView()
-            Text(service.phase == .downloading ? "İndiriliyor…" : "Kuruluyor, uygulama birazdan yeniden başlayacak…")
-                .font(.callout).foregroundStyle(.secondary)
+            if service.phase == .downloading {
+                ProgressView(value: service.progress) {
+                    Text("İndiriliyor… %\(Int(service.progress * 100))")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: 280)
+            } else {
+                ProgressView()
+                Text("Kuruluyor, uygulama birazdan yeniden başlayacak…")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)

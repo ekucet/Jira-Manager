@@ -14,6 +14,7 @@ final class UpdateService: ObservableObject {
     @Published var update: AvailableUpdate?
     @Published var errorMessage: String?
     @Published var showSheet = false
+    @Published var progress: Double = 0   // 0…1 during download
 
     var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
@@ -72,12 +73,18 @@ final class UpdateService: ObservableObject {
     func installAndRelaunch() async {
         guard let update else { return }
         phase = .downloading
+        progress = 0
         errorMessage = nil
+        let appPath = Bundle.main.bundlePath
+        let pid = ProcessInfo.processInfo.processIdentifier
         do {
             let dmg = try await download(asset: update.asset)
             phase = .installing
-            try launchInstaller(dmgPath: dmg.path)
-            // The installer waits for us to quit, swaps the app, and relaunches.
+            // Mount + copy is blocking work — run it off the main thread so the UI stays responsive.
+            try await Task.detached(priority: .userInitiated) {
+                try UpdateService.performInstall(dmgPath: dmg.path, appPath: appPath, pid: pid)
+            }.value
+            // Helper is running and waiting for us to quit; hand off by terminating.
             NSApp.terminate(nil)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -86,65 +93,52 @@ final class UpdateService: ObservableObject {
     }
 
     private func download(asset: GitHubRelease.Asset) async throws -> URL {
-        // Public release asset — direct download, no auth.
+        // Public release asset — direct download, no auth, with progress.
         guard let url = URL(string: asset.browserDownloadUrl) else { throw UpdateError("Geçersiz asset URL.") }
         var req = URLRequest(url: url)
         req.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
-
-        let (tmp, response): (URL, URLResponse)
-        do {
-            (tmp, response) = try await URLSession.shared.download(for: req)
-        } catch {
-            throw UpdateError("İndirme hatası: \(error.localizedDescription)")
+        let downloader = Downloader { [weak self] p in
+            Task { @MainActor in self?.progress = p }
         }
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw UpdateError("İndirme başarısız (\(http.statusCode)).")
-        }
-        let dest = FileManager.default.temporaryDirectory
-            .appendingPathComponent("JiraManagerUpdate-\(UUID().uuidString).dmg")
-        try? FileManager.default.removeItem(at: dest)
-        try FileManager.default.moveItem(at: tmp, to: dest)
-        return dest
+        return try await downloader.download(req)
     }
 
-    /// Mounts the DMG, then launches a detached script that (after we quit) swaps the app and relaunches it.
-    private func launchInstaller(dmgPath: String) throws {
-        // Mount
-        let attach = Pipe()
+    /// Mounts the DMG and launches a detached script that swaps the app and relaunches after we quit.
+    /// Runs off the main actor (blocking Process calls).
+    nonisolated static func performInstall(dmgPath: String, appPath: String, pid: Int32) throws {
+        // Mount at our own unique path — avoids "/Volumes/JiraManager N" collisions and parsing.
+        let mountPoint = FileManager.default.temporaryDirectory
+            .appendingPathComponent("jm-mount-\(UUID().uuidString)").path
+        try? FileManager.default.createDirectory(atPath: mountPoint, withIntermediateDirectories: true)
         let mount = Process()
         mount.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-        mount.arguments = ["attach", "-nobrowse", "-noverify", dmgPath]
-        mount.standardOutput = attach
+        mount.arguments = ["attach", "-nobrowse", "-noverify", "-noautoopen", "-mountpoint", mountPoint, dmgPath]
+        mount.standardOutput = Pipe()
+        mount.standardError = Pipe()
         try mount.run()
         mount.waitUntilExit()
-        let out = String(data: attach.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        var mountPoint = ""
-        for line in out.split(separator: "\n") {
-            if let r = line.range(of: "/Volumes/") {
-                mountPoint = String(line[r.lowerBound...]).trimmingCharacters(in: .whitespaces)
-                break
-            }
+        guard mount.terminationStatus == 0 else {
+            throw UpdateError("DMG mount edilemedi (hdiutil \(mount.terminationStatus)).")
         }
-        guard !mountPoint.isEmpty else { throw UpdateError("DMG mount edilemedi.") }
         let srcApp = mountPoint + "/JiraManager.app"
         guard FileManager.default.fileExists(atPath: srcApp) else {
             throw UpdateError("DMG içinde JiraManager.app bulunamadı.")
         }
-        let destApp = Bundle.main.bundlePath
-        let pid = ProcessInfo.processInfo.processIdentifier
 
         let scriptPath = FileManager.default.temporaryDirectory
             .appendingPathComponent("jm-update-\(UUID().uuidString).sh")
         let script = """
         #!/bin/bash
         while kill -0 \(pid) 2>/dev/null; do sleep 0.4; done
-        if rm -rf "\(destApp)" && /usr/bin/ditto "\(srcApp)" "\(destApp)"; then
-          /usr/sbin/xattr -dr com.apple.quarantine "\(destApp)" 2>/dev/null
+        if rm -rf "\(appPath)" && /usr/bin/ditto "\(srcApp)" "\(appPath)"; then
+          /usr/bin/xattr -dr com.apple.quarantine "\(appPath)" 2>/dev/null
           /usr/bin/hdiutil detach "\(mountPoint)" >/dev/null 2>&1
+          rmdir "\(mountPoint)" 2>/dev/null
           rm -f "\(dmgPath)"
-          /usr/bin/open "\(destApp)"
+          /usr/bin/open "\(appPath)"
         else
-          /usr/bin/open "\(mountPoint)"
+          /usr/bin/hdiutil detach "\(mountPoint)" >/dev/null 2>&1
+          /usr/bin/open -R "\(appPath)"
         fi
         rm -f "$0"
         """
@@ -154,7 +148,54 @@ final class UpdateService: ObservableObject {
         run.executableURL = URL(fileURLWithPath: "/bin/bash")
         run.arguments = [scriptPath.path]
         try run.run()
-        // Do not wait — it will outlive us and relaunch the app.
+        // Do not wait — the helper outlives us and relaunches the app.
+    }
+}
+
+/// Delegate-based downloader that reports progress and returns the downloaded file.
+private final class Downloader: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    private let onProgress: (Double) -> Void
+    private var continuation: CheckedContinuation<URL, Error>?
+
+    init(onProgress: @escaping (Double) -> Void) { self.onProgress = onProgress }
+
+    func download(_ request: URLRequest) async throws -> URL {
+        try await withCheckedThrowingContinuation { cont in
+            self.continuation = cont
+            let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+            session.downloadTask(with: request).resume()
+        }
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didWriteData bytesWritten: Int64, totalBytesWritten: Int64,
+                    totalBytesExpectedToWrite: Int64) {
+        guard totalBytesExpectedToWrite > 0 else { return }
+        onProgress(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didFinishDownloadingTo location: URL) {
+        // The temp file at `location` is removed once this returns — move it now.
+        let dest = FileManager.default.temporaryDirectory
+            .appendingPathComponent("JiraManagerUpdate-\(UUID().uuidString).dmg")
+        do {
+            try? FileManager.default.removeItem(at: dest)
+            try FileManager.default.moveItem(at: location, to: dest)
+            continuation?.resume(returning: dest)
+        } catch {
+            continuation?.resume(throwing: UpdateError("İndirilen dosya taşınamadı: \(error.localizedDescription)"))
+        }
+        continuation = nil
+        session.finishTasksAndInvalidate()
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error {
+            continuation?.resume(throwing: UpdateError("İndirme hatası: \(error.localizedDescription)"))
+            continuation = nil
+            session.finishTasksAndInvalidate()
+        }
     }
 }
 

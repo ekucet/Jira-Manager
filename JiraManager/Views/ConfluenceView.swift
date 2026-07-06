@@ -3,6 +3,13 @@ import SwiftUI
 struct ConfluenceView: View {
     @EnvironmentObject private var settings: AppSettings
     @StateObject private var viewModel = ConfluenceViewModel()
+    @StateObject private var web = WebController()
+
+    @State private var showFind = false
+    @State private var findText = ""
+    @State private var showWork = false
+    @State private var workTitle = ""
+    @State private var workText = ""
 
     var body: some View {
         NavigationSplitView {
@@ -36,20 +43,15 @@ struct ConfluenceView: View {
                     Text(error).font(.callout).multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
                 }
-                .padding()
-                .frame(maxHeight: .infinity)
+                .padding().frame(maxHeight: .infinity)
             } else {
                 List(selection: $viewModel.selectedID) {
                     ForEach(viewModel.results) { page in
                         VStack(alignment: .leading, spacing: 3) {
                             Text(page.title).font(.body).lineLimit(2)
                             HStack(spacing: 6) {
-                                if !page.spaceName.isEmpty {
-                                    Text(page.spaceName)
-                                }
-                                if !page.updatedDisplay.isEmpty {
-                                    Text("· \(page.updatedDisplay)")
-                                }
+                                if !page.spaceName.isEmpty { Text(page.spaceName) }
+                                if !page.updatedDisplay.isEmpty { Text("· \(page.updatedDisplay)") }
                             }
                             .font(.caption).foregroundStyle(.secondary)
                         }
@@ -79,34 +81,23 @@ struct ConfluenceView: View {
                 Image(systemName: "exclamationmark.triangle").font(.largeTitle).foregroundStyle(.orange)
                 Text(error).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
             }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding().frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let detail = viewModel.detail {
             VStack(spacing: 0) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(detail.title).font(.headline)
-                        if let space = detail.space?.name ?? detail.space?.key {
-                            Text(space).font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
-                    if let url = settings.confluenceClient?.browserURL(webui: detail.links?.webui) {
-                        Link(destination: url) {
-                            Label("Tarayıcıda aç", systemImage: "arrow.up.right.square")
-                        }
-                        .font(.callout)
-                    }
-                    Button {
-                        // Phase 2 hook: send this document to Claude Code.
-                    } label: {
-                        Label("Claude ile çalış (yakında)", systemImage: "wand.and.stars")
-                    }
-                    .disabled(true)
-                }
-                .padding(12)
+                toolbar(for: detail)
                 Divider()
-                HTMLView(html: detail.html, baseURL: settings.confluenceClient?.baseURL)
+                if showFind { findBar; Divider() }
+                HTMLView(controller: web)
+            }
+            .onChange(of: detail.id) { _, _ in
+                web.loadHTML(detail.html, baseURL: settings.confluenceClient?.baseURL)
+            }
+            .onAppear {
+                web.loadHTML(detail.html, baseURL: settings.confluenceClient?.baseURL)
+            }
+            .sheet(isPresented: $showWork) {
+                WorkSheet(title: workTitle, taskText: workText)
+                    .environmentObject(settings)
             }
         } else {
             VStack(spacing: 8) {
@@ -115,5 +106,55 @@ struct ConfluenceView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    private func toolbar(for detail: ConfluencePageDetail) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(detail.title).font(.headline).lineLimit(1)
+                if let space = detail.space?.name ?? detail.space?.key {
+                    Text(space).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Button {
+                showFind.toggle()
+            } label: { Image(systemName: "text.magnifyingglass") }
+                .help("Sayfa içinde ara")
+
+            if let url = settings.confluenceClient?.browserURL(webui: detail.links?.webui) {
+                Link(destination: url) { Label("Tarayıcıda aç", systemImage: "arrow.up.right.square") }
+                    .font(.callout)
+            }
+            Button {
+                Task {
+                    workText = await web.selectionOrAllText()
+                    workTitle = detail.title
+                    showWork = true
+                }
+            } label: {
+                Label("Claude ile çalış", systemImage: "wand.and.stars")
+            }
+            .buttonStyle(.borderedProminent)
+            .help("Seçili metni (yoksa tüm sayfayı) Claude Code'a görev olarak ver")
+        }
+        .padding(12)
+    }
+
+    private var findBar: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass").font(.caption).foregroundStyle(.secondary)
+            TextField("Sayfa içinde ara…", text: $findText)
+                .textFieldStyle(.plain)
+                .onSubmit { web.find(findText, forward: true) }
+            Button { web.find(findText, forward: false) } label: { Image(systemName: "chevron.up") }
+                .buttonStyle(.borderless)
+            Button { web.find(findText, forward: true) } label: { Image(systemName: "chevron.down") }
+                .buttonStyle(.borderless)
+            Button { showFind = false; findText = "" } label: { Image(systemName: "xmark") }
+                .buttonStyle(.borderless)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .background(Color.secondary.opacity(0.06))
     }
 }

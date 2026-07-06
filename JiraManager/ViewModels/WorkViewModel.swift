@@ -11,10 +11,12 @@ final class WorkViewModel: ObservableObject {
         case done
     }
 
-    // Context
-    let issueKey: String
-    let summary: String
-    let issueDescription: String
+    // Context — issueKey is nil for free-text (e.g. Confluence) tasks.
+    let issueKey: String?
+    let title: String
+    let taskText: String
+
+    var subtitle: String { issueKey ?? "Confluence" }
 
     // Flow state
     @Published var stage: Stage = .intro
@@ -29,13 +31,28 @@ final class WorkViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var noChanges = false
 
-    init(issueKey: String, summary: String, issueDescription: String) {
+    init(issueKey: String?, title: String, taskText: String) {
         self.issueKey = issueKey
-        self.summary = summary
-        self.issueDescription = issueDescription
-        self.branchName = "feature/\(issueKey)"
-        self.prTitle = "\(issueKey) \(summary)"
-        self.prDescription = "Jira: \(issueKey)\n\n\(summary)"
+        self.title = title
+        self.taskText = taskText
+        if let issueKey {
+            self.branchName = "feature/\(issueKey)"
+            self.prTitle = "\(issueKey) \(title)"
+            self.prDescription = "Jira: \(issueKey)\n\n\(title)"
+        } else {
+            self.branchName = "feature/\(Self.slug(title))"
+            self.prTitle = title
+            self.prDescription = title
+        }
+    }
+
+    /// Branch-safe slug from a free-text title.
+    private static func slug(_ text: String) -> String {
+        let lowered = text.lowercased()
+        let mapped = lowered.map { ($0.isLetter || $0.isNumber) ? $0 : "-" }
+        let joined = String(mapped)
+        let collapsed = joined.split(separator: "-").joined(separator: "-")
+        return String(collapsed.prefix(40))
     }
 
     private func appendLog(_ line: String) { log += line + "\n" }
@@ -54,10 +71,23 @@ final class WorkViewModel: ObservableObject {
 
         let git = GitRunner(projectPath: settings.projectPath, httpToken: settings.bitbucketToken)
         let claude = ClaudeRunner(claudePath: settings.claudePath, projectPath: settings.projectPath)
-        let prompt = ClaudeRunner.buildPrompt(
-            issueKey: issueKey, summary: summary,
-            description: issueDescription, feedback: feedback
-        )
+        let prompt: String
+        if let issueKey {
+            prompt = ClaudeRunner.buildPrompt(
+                issueKey: issueKey, summary: title,
+                description: taskText, feedback: feedback
+            )
+        } else {
+            let freeText = """
+            \(title)
+
+            \(taskText)
+
+            User guidance / feedback:
+            \(feedback)
+            """
+            prompt = ClaudeRunner.buildFreePrompt(freeText)
+        }
 
         do {
             let before = try await git.changedPaths()
@@ -100,7 +130,7 @@ final class WorkViewModel: ObservableObject {
 
         let git = GitRunner(projectPath: settings.projectPath, httpToken: settings.bitbucketToken)
         let bb = BitbucketClient(baseURL: bbURL, token: settings.bitbucketToken)
-        let commitMessage = "\(issueKey): \(summary)"
+        let commitMessage = issueKey.map { "\($0): \(title)" } ?? title
 
         do {
             let remote = try await git.remoteURL()

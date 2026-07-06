@@ -8,8 +8,15 @@ struct WorkSheet: View {
     init(issue: JiraIssue) {
         _vm = StateObject(wrappedValue: WorkViewModel(
             issueKey: issue.key,
-            summary: issue.summary,
-            issueDescription: issue.descriptionText
+            title: issue.summary,
+            taskText: issue.descriptionText
+        ))
+    }
+
+    /// Free-text task (e.g. a selected Confluence section).
+    init(title: String, taskText: String) {
+        _vm = StateObject(wrappedValue: WorkViewModel(
+            issueKey: nil, title: title, taskText: taskText
         ))
     }
 
@@ -34,8 +41,8 @@ struct WorkSheet: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(vm.issueKey).font(.caption.monospaced()).foregroundStyle(.secondary)
-                Text(vm.summary).font(.headline).lineLimit(1)
+                Text(vm.subtitle).font(.caption.monospaced()).foregroundStyle(.secondary)
+                Text(vm.title).font(.headline).lineLimit(1)
             }
             Spacer()
             Button("Kapat") { dismiss() }

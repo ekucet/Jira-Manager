@@ -17,7 +17,7 @@ struct RootView: View {
         }
         .task {
             // Silent update check on launch (only surfaces if a newer version exists).
-            await updater.check(settings: settings, silent: true)
+            await updater.check(silent: true)
         }
         .sheet(isPresented: $updater.showSheet) {
             UpdateSheet(service: updater)

@@ -16,7 +16,7 @@ struct JiraManagerApp: App {
             SidebarCommands()
             CommandGroup(after: .appInfo) {
                 Button("Güncellemeleri Denetle…") {
-                    Task { await updater.check(settings: settings, silent: false) }
+                    Task { await updater.check(silent: false) }
                 }
             }
         }

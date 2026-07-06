@@ -62,7 +62,7 @@ struct UpdateSheet: View {
                 Button("Sonra") { dismiss() }
                 Spacer()
                 Button {
-                    Task { await service.installAndRelaunch(settings: settings) }
+                    Task { await service.installAndRelaunch() }
                 } label: {
                     Label("Kur ve Yeniden Başlat", systemImage: "arrow.down.circle.fill")
                 }

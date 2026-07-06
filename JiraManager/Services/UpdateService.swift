@@ -22,11 +22,11 @@ final class UpdateService: ObservableObject {
     // MARK: Check
 
     /// Checks for a newer release. `silent` suppresses the "up to date" / error UI (for launch checks).
-    func check(settings: AppSettings, silent: Bool) async {
+    func check(silent: Bool) async {
         phase = .checking
         errorMessage = nil
         do {
-            let release = try await fetchLatest(token: settings.githubToken)
+            let release = try await fetchLatest()
             if SemVer.isNewer(release.version, than: currentVersion), let dmg = release.dmgAsset {
                 update = AvailableUpdate(version: release.version,
                                          notes: release.body ?? "",
@@ -45,12 +45,11 @@ final class UpdateService: ObservableObject {
         }
     }
 
-    private func fetchLatest(token: String) async throws -> GitHubRelease {
+    private func fetchLatest() async throws -> GitHubRelease {
         let url = URL(string: "https://api.github.com/repos/\(Self.owner)/\(Self.repo)/releases/latest")!
         var req = URLRequest(url: url)
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         req.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
-        if !token.isEmpty { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
 
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else {
@@ -70,12 +69,12 @@ final class UpdateService: ObservableObject {
 
     // MARK: Install
 
-    func installAndRelaunch(settings: AppSettings) async {
+    func installAndRelaunch() async {
         guard let update else { return }
         phase = .downloading
         errorMessage = nil
         do {
-            let dmg = try await download(asset: update.asset, token: settings.githubToken)
+            let dmg = try await download(asset: update.asset)
             phase = .installing
             try launchInstaller(dmgPath: dmg.path)
             // The installer waits for us to quit, swaps the app, and relaunches.
@@ -86,17 +85,15 @@ final class UpdateService: ObservableObject {
         }
     }
 
-    private func download(asset: GitHubRelease.Asset, token: String) async throws -> URL {
-        // Use the API asset URL with octet-stream so private assets resolve.
-        guard let url = URL(string: asset.url) else { throw UpdateError("Geçersiz asset URL.") }
+    private func download(asset: GitHubRelease.Asset) async throws -> URL {
+        // Public release asset — direct download, no auth.
+        guard let url = URL(string: asset.browserDownloadUrl) else { throw UpdateError("Geçersiz asset URL.") }
         var req = URLRequest(url: url)
         req.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
-        if !token.isEmpty { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
 
-        let stripper = RedirectAuthStripper()
         let (tmp, response): (URL, URLResponse)
         do {
-            (tmp, response) = try await URLSession.shared.download(for: req, delegate: stripper)
+            (tmp, response) = try await URLSession.shared.download(for: req)
         } catch {
             throw UpdateError("İndirme hatası: \(error.localizedDescription)")
         }
@@ -165,18 +162,4 @@ struct UpdateError: LocalizedError {
     let message: String
     init(_ m: String) { message = m }
     var errorDescription: String? { message }
-}
-
-/// Removes the Authorization header when a request is redirected to a different host
-/// (GitHub asset downloads redirect to a pre-signed storage URL that rejects extra auth).
-final class RedirectAuthStripper: NSObject, URLSessionTaskDelegate {
-    func urlSession(_ session: URLSession, task: URLSessionTask,
-                    willPerformHTTPRedirection response: HTTPURLResponse,
-                    newRequest request: URLRequest) async -> URLRequest? {
-        var req = request
-        if request.url?.host != task.originalRequest?.url?.host {
-            req.setValue(nil, forHTTPHeaderField: "Authorization")
-        }
-        return req
-    }
 }

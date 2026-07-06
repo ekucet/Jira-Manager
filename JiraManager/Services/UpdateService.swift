@@ -58,10 +58,10 @@ final class UpdateService: ObservableObject {
         }
         guard (200..<300).contains(http.statusCode) else {
             if http.statusCode == 404 {
-                throw UpdateError("Release bulunamadı. Private repo için Ayarlar'dan GitHub token girmelisin.")
+                throw UpdateError("Release bulunamadı (henüz yayınlanmamış olabilir).")
             }
-            if http.statusCode == 401 {
-                throw UpdateError("GitHub token geçersiz (401).")
+            if http.statusCode == 403 {
+                throw UpdateError("GitHub API limiti (403). Biraz sonra tekrar dene.")
             }
             throw UpdateError("GitHub \(http.statusCode) döndü.")
         }

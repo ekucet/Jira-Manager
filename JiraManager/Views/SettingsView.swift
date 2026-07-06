@@ -140,10 +140,7 @@ struct SettingsView: View {
                 Text("Yüklü sürüm").font(.caption).foregroundStyle(.secondary)
                 Text(appVersion).font(.caption.monospaced())
             }
-            Text("Repo private olduğu için güncelleme kontrolü bir GitHub token ister (repo okuma yetkisi).")
-                .font(.caption).foregroundStyle(.secondary)
-            secureField("GitHub Token", text: $settings.githubToken)
-            Text("Kontrol için menü: JiraManager → “Güncellemeleri Denetle…”")
+            Text("Yeni sürüm çıktığında uygulama açılışta otomatik haber verir ve tek tıkla günceller — token gerekmez. Elle kontrol: menü → JiraManager → “Güncellemeleri Denetle…”.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

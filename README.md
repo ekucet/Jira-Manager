@@ -36,7 +36,8 @@ Uygulamada **Ayarlar**'ı aç ve doldur:
 - **Confluence** — URL ve access token (Jira'nınkinden ayrı bir token).
 - **Proje klasörü** — Claude Code'un çalışacağı yerel git deposu.
 - **claude CLI yolu** ve **PR hedef branch**.
-- **GitHub Token** (Güncelleme bölümü) — repo private olduğu için otomatik güncelleme kontrolünün ihtiyaç duyduğu, repo okuma yetkili bir token.
+
+Otomatik güncelleme (Releases public olduğu için) token gerektirmez.
 
 ## Kaynaktan Derleme
 

@@ -81,6 +81,24 @@ struct BitbucketClient {
         }
     }
 
+    /// Lists branches, most recently modified first. `filter` narrows by name substring.
+    func listBranches(project: String, slug: String, filter: String?) async throws -> [BitbucketBranch] {
+        var query = [
+            URLQueryItem(name: "limit", value: "100"),
+            URLQueryItem(name: "orderBy", value: "MODIFICATION"),
+        ]
+        if let filter, !filter.isEmpty { query.append(URLQueryItem(name: "filterText", value: filter)) }
+        guard let req = authedRequest(path: "rest/api/1.0/projects/\(project)/repos/\(slug)/branches", query: query) else {
+            throw BitbucketError(message: "Geçersiz URL.")
+        }
+        let data = try await sendJSON(req)
+        do {
+            return try JSONDecoder().decode(BitbucketBranchPage.self, from: data).values
+        } catch {
+            throw BitbucketError(message: "Branch listesi çözümlenemedi: \(error.localizedDescription)")
+        }
+    }
+
     /// Posts a general comment on a pull request.
     func addComment(project: String, slug: String, prId: Int, text: String) async throws {
         let body = try JSONSerialization.data(withJSONObject: ["text": text])

@@ -9,6 +9,9 @@ struct RootView: View {
             ContentView()
                 .tabItem { Label("İşlerim", systemImage: "checklist") }
 
+            CreatePRView()
+                .tabItem { Label("PR Aç", systemImage: "arrow.triangle.branch") }
+
             PRReviewView()
                 .tabItem { Label("PR Review", systemImage: "arrow.triangle.pull") }
 

@@ -4,6 +4,17 @@ struct BitbucketPRPage: Decodable {
     let values: [BitbucketPR]
 }
 
+struct BitbucketBranchPage: Decodable {
+    let values: [BitbucketBranch]
+}
+
+struct BitbucketBranch: Decodable, Identifiable, Hashable {
+    let id: String            // e.g. "refs/heads/feature/x"
+    let displayId: String     // e.g. "feature/x"
+    let isDefault: Bool?
+    let latestCommit: String?
+}
+
 struct BitbucketPR: Decodable, Identifiable, Hashable {
     let id: Int
     let title: String

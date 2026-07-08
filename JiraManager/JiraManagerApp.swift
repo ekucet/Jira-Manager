@@ -4,12 +4,14 @@ import SwiftUI
 struct JiraManagerApp: App {
     @StateObject private var settings = AppSettings()
     @StateObject private var updater = UpdateService()
+    @StateObject private var watch = WatchService()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(settings)
                 .environmentObject(updater)
+                .environmentObject(watch)
                 .frame(minWidth: 900, minHeight: 560)
         }
         .commands {

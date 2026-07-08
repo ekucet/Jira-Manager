@@ -15,6 +15,9 @@ struct RootView: View {
             PRReviewView()
                 .tabItem { Label("PR Review", systemImage: "arrow.triangle.pull") }
 
+            ApprovalView()
+                .tabItem { Label("PR Onay", systemImage: "checkmark.seal") }
+
             ConfluenceView()
                 .tabItem { Label("Confluence", systemImage: "doc.richtext") }
         }

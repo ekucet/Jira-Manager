@@ -81,6 +81,37 @@ struct BitbucketClient {
         }
     }
 
+    /// The authenticated user's username, via Bitbucket's `X-AUSERNAME` response header.
+    func currentUsername() async throws -> String {
+        guard let req = authedRequest(path: "rest/api/1.0/application-properties") else {
+            throw BitbucketError(message: "Geçersiz URL.")
+        }
+        let (_, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse,
+              let user = http.value(forHTTPHeaderField: "X-AUSERNAME"), user != "anonymous" else {
+            throw BitbucketError(message: "Kullanıcı belirlenemedi.")
+        }
+        return user
+    }
+
+    /// Approves a pull request as the authenticated user.
+    func approve(project: String, slug: String, prId: Int) async throws {
+        guard let req = authedRequest(
+            path: "rest/api/1.0/projects/\(project)/repos/\(slug)/pull-requests/\(prId)/approve",
+            method: "POST"
+        ) else { throw BitbucketError(message: "Geçersiz URL.") }
+        _ = try await sendJSON(req)
+    }
+
+    /// Removes the authenticated user's approval.
+    func unapprove(project: String, slug: String, prId: Int) async throws {
+        guard let req = authedRequest(
+            path: "rest/api/1.0/projects/\(project)/repos/\(slug)/pull-requests/\(prId)/approve",
+            method: "DELETE"
+        ) else { throw BitbucketError(message: "Geçersiz URL.") }
+        _ = try await sendJSON(req)
+    }
+
     /// Lists branches, most recently modified first. `filter` narrows by name substring.
     func listBranches(project: String, slug: String, filter: String?) async throws -> [BitbucketBranch] {
         var query = [

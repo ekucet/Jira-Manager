@@ -23,6 +23,15 @@ struct BitbucketPR: Decodable, Identifiable, Hashable {
     let fromRef: Ref
     let toRef: Ref
     let links: Links?
+    let reviewers: [Reviewer]?
+
+    struct Reviewer: Decodable, Hashable, Identifiable {
+        let user: User?
+        let approved: Bool?
+        let status: String?   // APPROVED | UNAPPROVED | NEEDS_WORK
+        struct User: Decodable, Hashable { let displayName: String?; let name: String? }
+        var id: String { user?.name ?? user?.displayName ?? UUID().uuidString }
+    }
 
     struct Participant: Decodable, Hashable {
         let user: User?

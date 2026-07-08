@@ -5,10 +5,10 @@ struct CreatePRView: View {
     @StateObject private var vm = CreatePRViewModel()
 
     var body: some View {
-        NavigationSplitView {
-            sidebar.frame(minWidth: 300)
-        } detail: {
-            detail
+        HStack(spacing: 0) {
+            sidebar.frame(width: 320)
+            Divider()
+            detail.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task { await vm.loadBranches(using: settings) }
     }
